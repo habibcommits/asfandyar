@@ -1,0 +1,240 @@
+
+MERN Asfandyaroptico.com E‑Commerce Application – Implementation Plan
+
+1. Project Overview
+Objective:
+Build a full-stack MERN e-commerce platform for eye lenses, optimized for Vercel serverless deployment, with a modern UI, advanced product filtering, secure authentication, and guest checkout.
+Key Features:
+User-Facing Website:
+Pages: Home, Shop, Product Detail, About Us, Location
+Advanced product filtering by price, category, lens type, material, usage, brand
+Real-time search
+SEO-friendly product pages
+Authentication & Security:
+Email OTP verification for signup, login, and password reset via Zoho SMTP
+JWT-based authentication for users and admin
+Cookies for session management
+Guest orders allowed without login/signup
+Admin Dashboard:
+Product, category, and user management
+Revenue and sales analytics with charts
+Order management and tracking
+Block/unblock or promote users
+Orders & Delivery:
+Guest and logged-in users can place orders
+Free delivery for orders above 10,000 PKR
+Order tracking system integrated for users and admin
+Media & Storage:
+Product images hosted on ImageKit for CDN delivery and optimization
+Fast loading pages with responsive design
+Serverless Deployment:
+Backend APIs deployed as serverless functions on Vercel
+React frontend served as static assets
+
+2. Project Architecture (Vercel-Friendly Single Repository)
+root/
+│── api/                  # Express.js backend (serverless)
+│   ├── index.js          # Main serverless entry
+│   ├── routes/
+│   │   ├── auth.js       # Signup/Login/OTP, cookies, guest auth
+│   │   ├── products.js   # Product CRUD, filtering
+│   │   ├── categories.js # Category CRUD
+│   │   ├── orders.js     # Order creation, guest orders, tracking
+│   │   └── delivery.js   # Delivery info & free delivery calculation
+│   ├── models/           # Users, Products, Orders, Categories
+│   └── config/           # MongoDB connection, environment variables
+│
+│── client/               # React + Vite frontend
+│   ├── pages/            # Home, Shop, Product, Category, About, Location, Auth, Admin
+│   ├── components/       # Header, Footer, ProductCard, Filters, Modals, Checkout
+│   ├── redux/            # Global state management (Redux Toolkit)
+│   └── assets/           # Images, icons, fonts
+│
+│── vercel.json           # Routing rules
+│── package.json
+│── README.md
+
+Why this architecture works for Vercel:
+/api/* deployed as serverless backend functions
+/client/* is built as static React app
+Single repository simplifies version control & CI/CD
+Modular structure ensures scalability and maintainability
+
+3. Technology Stack
+Layer
+Technology/Service
+Frontend
+React (Vite), Tailwind CSS, Redux Toolkit, React Router DOM, Chart.js / Recharts
+Backend
+Node.js, Express.js (serverless), JWT auth, Zoho SMTP for OTP, Cookies for session management
+Database
+MongoDB Atlas
+File Storage
+ImageKit (CDN optimized product images)
+Maps
+Google Maps API (store locations)
+Hosting
+Vercel (serverless backend + static frontend)
+
+
+4. Database Schema (MongoDB)
+Users:
+name, email, password (hashed)
+role (user / admin)
+OTP (hashed or temporary token)
+OTP expiration timestamp
+session cookies (optional)
+Categories:
+name, description, slug
+Products:
+name, description, price
+category → ObjectId
+lensType (Contact / Spectacle)
+material (Soft / Hard)
+usage (Daily / Monthly)
+color, brand
+stock quantity
+images (ImageKit URLs)
+slug (SEO-friendly)
+Orders:
+user → ObjectId (nullable for guest orders)
+products → array (product ID + quantity)
+totalPrice
+deliveryCharge (calculated; free if >10,000 PKR)
+paymentInfo
+status (Pending / Shipped / Delivered / Cancelled)
+trackingNumber
+createdAt
+
+5. Frontend Pages & Features
+User-Facing Pages:
+Home: Hero banner, featured brands, lens categories
+Shop: Product grid, filters, real-time search
+Product Detail: SEO-friendly URL, dynamic meta tags, structured data, ImageKit images
+About Us: Brand story, certifications, optical quality standards
+Location: Google Maps integration with physical stores
+Auth: Signup, login, password reset with Zoho OTP
+Checkout: Supports guest or logged-in users, calculates delivery charge, shows order tracking
+Admin Panel:
+Dashboard: Total revenue, total orders, sales charts
+Category Management: CRUD
+Product Management: Add/edit products, upload images to ImageKit, manage stock & pricing
+User Management: View all users, block/unblock, promote to admin
+Order Management: Track orders, update status, generate tracking numbers
+
+6. Backend Implementation (Serverless)
+Serverless Best Practices:
+Cache MongoDB connections to prevent connection limits
+Stateless JWT authentication + cookies for sessions
+Filters handled via query parameters (req.query)
+OTP stored temporarily in memory, Redis, or DB for verification
+Guest orders allowed with temporary session ID or cookies
+Sample API Endpoint:
+// api/index.js
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+app.get('/api/products', async (req, res) => {
+  const { category, maxPrice } = req.query;
+  const filter = {
+    ...(category && { category }),
+    ...(maxPrice && { price: { $lte: maxPrice } })
+  };
+  const products = await Product.find(filter);
+  res.json(products);
+});
+
+module.exports = app;
+
+
+7. Email OTP Integration (Zoho)
+Signup, login, password reset require OTP
+6-digit OTP, hashed, expires in 5 minutes
+Sent via Zoho SMTP
+Verification endpoint validates OTP, issues JWT, sets session cookie
+
+8. Image Storage (ImageKit)
+Product images uploaded to ImageKit
+Only URLs stored in MongoDB
+Benefits: CDN, optimized images, faster load, responsive
+Environment variables:
+IMAGEKIT_PUBLIC_KEY
+IMAGEKIT_PRIVATE_KEY
+IMAGEKIT_URL_ENDPOINT
+
+
+9. SEO Implementation
+Dynamic SEO-friendly URLs: /product/<slug>
+sitemap.xml auto-updated with all products
+robots.txt blocks admin/API, points to sitemap
+Meta tags & structured data (JSON-LD) for rich snippets
+Canonical URLs to prevent duplicate content
+Image alt attributes optimized
+Optional pre-rendering or SSR for React for better indexing
+
+10. Orders & Delivery Features
+Guest checkout allowed without login
+Cookies maintain cart/session for guests
+Free delivery automatically applied for orders > 10,000 PKR
+Order tracking:
+Each order receives unique tracking number
+Users can view status: Pending → Shipped → Delivered → Cancelled
+Admin can update tracking status
+
+11. Vercel Deployment Configuration
+vercel.json:
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/client/index.html" }
+  ]
+}
+
+Environment Variables:
+MONGODB_URI
+JWT_SECRET
+ZOHO_EMAIL
+ZOHO_PASSWORD
+IMAGEKIT_PUBLIC_KEY
+IMAGEKIT_PRIVATE_KEY
+IMAGEKIT_URL_ENDPOINT
+
+12. Deployment Workflow
+Setup MongoDB Atlas
+Create ImageKit account
+Configure Zoho SMTP
+Push project to GitHub
+Import repository into Vercel
+Add environment variables in Vercel dashboard
+Deploy → React frontend and serverless backend automatically live
+
+13. Security & Optimization
+Passwords & OTPs hashed (bcrypt)
+OTP expires after 5 minutes
+Rate-limit OTP requests
+JWT-based authentication + session cookies
+Input validation on backend
+SSL/HTTPS via Vercel
+CDN via ImageKit for fast image delivery
+SEO-friendly pre-rendering and structured data
+
+14. Final Deliverables
+Single-folder MERN application
+Serverless backend on Vercel
+Zoho OTP authentication + session cookies
+Guest order support and order tracking
+Free delivery for orders above 10,000 PKR
+Admin dashboard with analytics
+SEO-optimized product pages with sitemap and structured data
+Fast, mobile-friendly, secure, and production-ready
+
+
+.env  looks like this
+MONGODB_URI=”mongodb+srv://Truepathtemp:Truepathtemp@rightpath.kdovr8j.mongodb.net/opti**?retryWrites=true&w=majority"
+JWT_SECRET=K1jSaw0atxRDi88y6mfg**fhBwg1yRNpILhZhhTrcYT
+ZOHO_EMAIL=otp@asfandyaroptico.com
+ZOHO_PASSWORD=Moiz***ar@802
+IMAGEKIT_PUBLIC_KEY=public_Pbg7F7l**IC/EQLJF8EhBrDUEpo=
+IMAGEKIT_PRIVATE_KEY=private_p0ACpc+Kmuuy****8GFCiBTZMTo=
+IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/********lf/
